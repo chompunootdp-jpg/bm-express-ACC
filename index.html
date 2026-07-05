@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BM Express — ระบบจัดการเงิน</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-row">
+        <div class="logo-icon"><span>BM</span></div>
+        <div>
+          <div class="logo-title">BM Express</div>
+          <div class="logo-subtitle">ระบบจัดการเงิน</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">เมนูหลัก</div>
+      <div class="bm-nav" data-page="dashboard">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+        <span>ภาพรวม</span>
+      </div>
+      <div class="bm-nav" data-page="master">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 15h8v2H8zm0-4h8v2H8zm0-4h5v2H8z"/></svg>
+        <span>ข้อมูลตั้งต้น</span>
+      </div>
+      <div class="bm-nav" data-page="parcels">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 8h-2.81c-.45-.78-1.07-1.45-1.82-1.96L17 4.41 15.59 3l-2.17 2.17C13 5.06 12.51 5 12 5c-.51 0-1 .06-1.41.17L8.41 3 7 4.41l1.62 1.63C7.88 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81c1.04 1.79 2.97 3 5.19 3s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8z"/></svg>
+        <span>รับพัสดุ / กำไร</span>
+      </div>
+      <div class="bm-nav" data-page="cashflow">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
+        <span>สรุปเงินสด</span>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button id="btnExport" class="bm-btn-p btn-export">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+        Export Excel (3 ไฟล์)
+      </button>
+      <button id="btnReset" class="btn-reset-link">รีเซ็ตข้อมูลกลับเป็นต้นฉบับจาก Excel</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- Top bar -->
+    <div class="topbar">
+      <div>
+        <h1 id="pageTitle" class="page-title"></h1>
+        <div id="pageSubtitle" class="page-subtitle"></div>
+      </div>
+      <div class="topbar-actions">
+        <button id="btnAddParcel" class="bm-btn-p btn-action hidden"><span class="plus">+</span><span>บันทึกพัสดุ</span></button>
+        <button id="btnAddCash" class="bm-btn-p btn-action hidden"><span class="plus">+</span><span>บันทึกรายการ</span></button>
+        <button id="btnAddMaster" class="bm-btn-p btn-action hidden"><span class="plus">+</span><span>เพิ่มรายการ</span></button>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div id="content" class="content"></div>
+  </main>
+
+</div>
+
+<!-- ===== MODAL: PARCEL FORM ===== -->
+<div id="parcelModal" class="overlay hidden">
+  <div class="modal modal-parcel">
+    <div class="modal-header sticky">
+      <div>
+        <div id="parcelModalTitle" class="modal-title">บันทึกรายการพัสดุ</div>
+        <div class="modal-subtitle">เลือกบรรจุภัณฑ์ → ระบบดึงราคาให้อัตโนมัติ</div>
+      </div>
+      <button class="modal-close" data-close="parcelModal">×</button>
+    </div>
+
+    <div class="modal-body gap-18">
+      <div class="grid-2">
+        <div>
+          <label class="field-label">วัน/เดือน/ปี <span class="req">*</span></label>
+          <input type="date" id="pfDate" class="field-input">
+        </div>
+        <div>
+          <label class="field-label">เลข Tracking <span class="req">*</span></label>
+          <input type="text" id="pfTracking" class="field-input" placeholder="เช่น TH12345678">
+        </div>
+      </div>
+
+      <div>
+        <label class="field-label">บรรจุภัณฑ์ (Smart Auto-fill)</label>
+        <select id="pfPackaging" class="field-input field-select"></select>
+      </div>
+
+      <div class="grid-2">
+        <div>
+          <label class="field-label">ราคาต้นทุนกล่อง (฿)</label>
+          <input type="number" id="pfBoxCost" class="field-input field-pink" placeholder="0">
+        </div>
+        <div>
+          <label class="field-label">ราคาขาย (฿)</label>
+          <input type="number" id="pfSellPrice" class="field-input field-pink" placeholder="0">
+        </div>
+      </div>
+
+      <div>
+        <label class="field-label mb-8">ค่าดำเนินงาน</label>
+        <div class="grid-3">
+          <div>
+            <label class="field-sublabel">ต้นทุนขนส่ง (฿)</label>
+            <input type="number" id="pfTransport" class="field-input" placeholder="0">
+          </div>
+          <div>
+            <label class="field-sublabel">ค่าบริการ (฿)</label>
+            <input type="number" id="pfService" class="field-input" placeholder="0">
+          </div>
+          <div>
+            <label class="field-sublabel">ต้นทุนใบปะหน้า (฿)</label>
+            <input type="number" id="pfLabelCost" class="field-input" placeholder="0">
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label class="field-label">รายได้รวม (฿) <span class="req">*</span></label>
+        <input type="number" id="pfTotalRevenue" class="field-input" placeholder="0">
+      </div>
+
+      <!-- Live profit preview -->
+      <div class="profit-preview">
+        <div class="profit-label">กำไรสุทธิ (คำนวณอัตโนมัติ)</div>
+        <div id="liveProfit" class="profit-value">฿0.00</div>
+        <div class="profit-formula">= รายได้รวม − (ต้นทุนกล่อง + ต้นทุนขนส่ง + ต้นทุนใบปะหน้า)</div>
+      </div>
+
+      <div>
+        <label class="field-label">หมายเหตุ</label>
+        <textarea id="pfNote" class="field-input" placeholder="หมายเหตุ..." rows="2"></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-cancel" data-close="parcelModal">ยกเลิก</button>
+        <button id="btnSubmitParcel" class="bm-btn-p btn-submit">บันทึก</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: CASH FORM ===== -->
+<div id="cashModal" class="overlay hidden">
+  <div class="modal modal-cash">
+    <div class="modal-header sticky">
+      <div>
+        <div id="cashModalTitle" class="modal-title">บันทึกเงินสดรับ-จ่าย</div>
+        <div id="cashModalSubtitle" class="modal-subtitle">เลือกวันที่ครั้งเดียว แล้วเพิ่มได้หลายรายการ</div>
+      </div>
+      <button class="modal-close" data-close="cashModal">×</button>
+    </div>
+
+    <div class="modal-body gap-16">
+      <div>
+        <label class="field-label">วัน/เดือน/ปี <span class="req">*</span></label>
+        <input type="date" id="cfDate" class="field-input">
+      </div>
+
+      <div id="cfRows"></div>
+      <button id="btnAddCashRow" type="button" class="btn-add-row">+ เพิ่มรายการ</button>
+
+      <div class="modal-actions">
+        <button class="btn-cancel" data-close="cashModal">ยกเลิก</button>
+        <button id="btnSubmitCash" class="bm-btn-p btn-submit">บันทึก</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: MASTER FORM ===== -->
+<div id="masterModal" class="overlay hidden">
+  <div class="modal modal-master">
+    <div class="modal-header">
+      <div id="masterFormTitle" class="modal-title">เพิ่มรายการใหม่</div>
+      <button class="modal-close" data-close="masterModal">×</button>
+    </div>
+
+    <div class="modal-body gap-16">
+      <div>
+        <label class="field-label">ชื่อรายการ <span class="req">*</span></label>
+        <input type="text" id="mfName" class="field-input" placeholder="เช่น กล่อง AB เล็ก">
+      </div>
+      <div class="grid-2">
+        <div>
+          <label class="field-label">ต้นทุน (฿)</label>
+          <input type="number" id="mfCost" class="field-input" placeholder="0">
+        </div>
+        <div>
+          <label class="field-label">ราคาที่ขาย (฿)</label>
+          <input type="number" id="mfPrice" class="field-input" placeholder="0">
+        </div>
+      </div>
+      <div class="modal-actions pt-4">
+        <button class="btn-cancel" data-close="masterModal">ยกเลิก</button>
+        <button id="btnSubmitMaster" class="bm-btn-p btn-submit">บันทึก</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="seed-data.js"></script>
+<script src="supabase-client.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

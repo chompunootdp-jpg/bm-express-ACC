@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "bm-express",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "C:\\Users\\Acer\\AppData\\Local\\Temp\\claude\\C--Users-Acer-OneDrive---Prince-of-Songkla-University-BM-Express-Finance\\6ae30f47-41d7-4587-ae31-499cb92c81e8\\scratchpad\\serve.ps1"
+      ],
+      "port": 8321
+    }
+  ]
+}
