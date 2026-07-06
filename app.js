@@ -153,6 +153,22 @@ async function syncDailyIncome(dateStr) {
   }
 }
 
+// ร้านเปิดใหม่วันที่ 1 ก.ค. 2569 — ยอดก่อนหน้านั้นเป็นสมุดเก่าที่ปรับยอดปิดไว้แล้ว ห้าม backfill ทับ
+const SHOP_REOPEN_DATE = '2026-07-01';
+
+// ตรวจทุกวันที่มีพัสดุ (ตั้งแต่วันเปิดร้านใหม่) ให้มีรายการรายได้ในสรุปเงินสดตรงกันเสมอ
+// กันกรณีพัสดุถูกกรอกจากแท็บเก่าที่ยังไม่มีระบบ sync — จะถูกเติมให้เองเมื่อมีคนเปิดแอปครั้งถัดไป
+async function backfillDailyIncome() {
+  const dates = {};
+  state.parcels.forEach(function (p) {
+    if (p.date && p.date >= SHOP_REOPEN_DATE) dates[p.date] = true;
+  });
+  const list = Object.keys(dates);
+  for (let i = 0; i < list.length; i++) {
+    await syncDailyIncome(list[i]);
+  }
+}
+
 /* ---------- Helpers ---------- */
 
 function esc(s) {
@@ -940,6 +956,7 @@ async function initApp() {
   }
   await load();
   await ensureReconciliationEntry();
+  await backfillDailyIncome();
   render();
 }
 
