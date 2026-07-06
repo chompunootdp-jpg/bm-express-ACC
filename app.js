@@ -66,18 +66,8 @@ function save() {
   // This function is kept as a stub for backward compatibility
 }
 
-function initSupabase() {
-  // ตรวจสอบว่า Supabase library และ functions พร้อม
-  if (typeof supabase === 'undefined' || !supabase) {
-    console.warn('Supabase client not loaded');
-    return false;
-  }
-  if (typeof loadAllDataFromDB === 'undefined') {
-    console.warn('Supabase functions not loaded');
-    return false;
-  }
-  return true;
-}
+// หมายเหตุ: initSupabase() อยู่ใน supabase-client.js (สร้าง client จริง)
+// ห้ามประกาศซ้ำในไฟล์นี้ — เคยประกาศซ้ำแล้วทับตัวจริง ทำให้ client ไม่ถูกสร้างเลย
 
 // เครื่องที่เคยใช้แอปมาก่อนวันที่เพิ่มรายการปรับยอด จะมีข้อมูลเก่าอยู่ใน localStorage
 // ซึ่งมาก่อน seed-data.js เสมอ — ฟังก์ชันนี้เติมรายการปรับยอดให้อัตโนมัติถ้ายังไม่มี โดยไม่กระทบข้อมูลจริงอื่นๆ
@@ -737,9 +727,7 @@ document.querySelectorAll('.bm-nav').forEach(function (el) {
 
 document.getElementById('btnExport').addEventListener('click', exportExcel);
 document.getElementById('btnReset').addEventListener('click', function () {
-  const ok = confirm('ยืนยันรีเซ็ตข้อมูลทั้งหมดในเครื่องนี้กลับเป็นต้นฉบับจากไฟล์ Excel เดิม?\n\nการกระทำนี้จะลบข้อมูลพัสดุ/เงินสด/ข้อมูลตั้งต้นทุกอย่างที่เพิ่มหรือแก้ไขไว้ในเครื่องนี้ แล้วโหลดข้อมูลต้นฉบับกลับมาใหม่ทั้งหมด');
-  if (!ok) return;
-  localStorage.removeItem(STORAGE_KEY);
+  // ข้อมูลอยู่บน Supabase — โหลดหน้าใหม่เพื่อดึงข้อมูลล่าสุดจากเซิร์ฟเวอร์
   location.reload();
 });
 document.getElementById('btnAddParcel').addEventListener('click', function () { openParcelModal(null); });
