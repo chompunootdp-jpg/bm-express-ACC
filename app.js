@@ -102,6 +102,57 @@ async function ensureReconciliationEntry() {
   }
 }
 
+/* ---------- เชื่อมรายได้พัสดุ → สรุปเงินสดอัตโนมัติ ---------- */
+
+// รายการที่ระบบสร้างเองจะขึ้นต้นด้วยข้อความนี้ — ใช้เป็นตัวระบุเพื่ออัปเดต/ลบภายหลัง
+const AUTO_INCOME_PREFIX = 'รายได้จากพัสดุวันที่ ';
+const AUTO_INCOME_NOTE = 'สร้างอัตโนมัติจากหน้ารับพัสดุ — ยอดจะอัปเดตเองเมื่อบันทึก/แก้ไข/ลบพัสดุของวันนั้น';
+
+// รวมยอดรายได้พัสดุทั้งหมดของวันนั้น แล้วสร้าง/อัปเดต/ลบรายการรายได้ในสรุปเงินสดให้ตรงกันเสมอ
+async function syncDailyIncome(dateStr) {
+  if (!dateStr) return;
+  const total = state.parcels.reduce(function (s, p) {
+    return p.date === dateStr ? s + (p.totalRevenue || 0) : s;
+  }, 0);
+  const autoEntry = state.cashflow.find(function (c) {
+    return c.date === dateStr && String(c.item).indexOf(AUTO_INCOME_PREFIX) === 0;
+  });
+  // วันเก่าที่เคยกรอกรายได้ประจำวันด้วยมือไว้แล้ว (จากสมุด Excel เดิม) — ไม่สร้างซ้ำ กันยอดนับเบิ้ล
+  const hasManualEntry = state.cashflow.some(function (c) {
+    return c.date === dateStr && String(c.item).indexOf('รายได้วันที่') === 0;
+  });
+  try {
+    if (autoEntry) {
+      if (total > 0) {
+        const updated = Object.assign({}, autoEntry, { income: total });
+        const ok = await updateCashflowInDB(updated);
+        if (ok) {
+          state.cashflow = state.cashflow.map(function (c) { return c.id === autoEntry.id ? updated : c; });
+        }
+      } else {
+        const ok = await deleteCashflowFromDB(autoEntry.id);
+        if (ok) {
+          state.cashflow = state.cashflow.filter(function (c) { return c.id !== autoEntry.id; });
+        }
+      }
+    } else if (total > 0 && !hasManualEntry) {
+      const record = {
+        id: Date.now() + 1, // +1 กันชนกับ id พัสดุที่เพิ่งสร้างในมิลลิวินาทีเดียวกัน
+        date: dateStr,
+        item: AUTO_INCOME_PREFIX + fmtDate(dateStr),
+        income: total,
+        expenseGoods: 0,
+        expenseOther: 0,
+        note: AUTO_INCOME_NOTE,
+      };
+      const ok = await insertCashflowToDB(record);
+      if (ok) state.cashflow.unshift(record);
+    }
+  } catch (e) {
+    console.error('Error syncing daily income:', e);
+  }
+}
+
 /* ---------- Helpers ---------- */
 
 function esc(s) {
@@ -474,6 +525,8 @@ async function submitParcel() {
   if (state.editingParcelId) {
     const id = state.editingParcelId;
     const record = Object.assign({ id: id }, data);
+    // เก็บวันที่เดิมไว้ก่อน — ถ้าแก้วันที่ ต้อง sync ยอดรายได้ทั้งวันเก่าและวันใหม่
+    const prev = state.parcels.find(function (p) { return p.id === id; });
     try {
       if (typeof updateParcelInDB !== 'undefined') {
         const success = await updateParcelInDB(record);
@@ -483,6 +536,8 @@ async function submitParcel() {
         }
       }
       state.parcels = state.parcels.map(function (p) { return p.id === id ? record : p; });
+      await syncDailyIncome(record.date);
+      if (prev && prev.date !== record.date) await syncDailyIncome(prev.date);
     } catch (e) {
       console.error('Error updating parcel:', e);
       alert('ไม่สามารถบันทึกข้อมูลได้');
@@ -499,6 +554,7 @@ async function submitParcel() {
         }
       }
       state.parcels.unshift(record);
+      await syncDailyIncome(record.date);
     } catch (e) {
       console.error('Error inserting parcel:', e);
       alert('ไม่สามารถบันทึกข้อมูลได้');
@@ -834,7 +890,9 @@ document.getElementById('content').addEventListener('click', function (e) {
               return;
             }
           }
+          const removed = state.parcels.find(function (p) { return p.id === id; });
           state.parcels = state.parcels.filter(function (p) { return p.id !== id; });
+          if (removed) await syncDailyIncome(removed.date);
           render();
         } catch (e) {
           console.error('Error deleting parcel:', e);
